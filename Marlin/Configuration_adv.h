@@ -63,7 +63,7 @@
  */
 #if ENABLED(THERMAL_PROTECTION_HOTENDS)
   #define THERMAL_PROTECTION_PERIOD 40        // Seconds
-  #define THERMAL_PROTECTION_HYSTERESIS 4     // Degrees Celsius
+  #define THERMAL_PROTECTION_HYSTERESIS 6     // Degrees Celsius
 
   /**
    * Whenever an M104 or M109 increases the target temperature the firmware will wait for the
@@ -74,7 +74,7 @@
    * If you get false positives for "Heating failed" increase WATCH_TEMP_PERIOD and/or decrease WATCH_TEMP_INCREASE
    * WATCH_TEMP_INCREASE should not be below 2.
    */
-  #define WATCH_TEMP_PERIOD 20                // Seconds
+  #define WATCH_TEMP_PERIOD 60                // Seconds
   #define WATCH_TEMP_INCREASE 2               // Degrees Celsius
 #endif
 
@@ -82,8 +82,8 @@
  * Thermal Protection parameters for the bed are just as above for hotends.
  */
 #if ENABLED(THERMAL_PROTECTION_BED)
-  #define THERMAL_PROTECTION_BED_PERIOD 20    // Seconds
-  #define THERMAL_PROTECTION_BED_HYSTERESIS 2 // Degrees Celsius
+  #define THERMAL_PROTECTION_BED_PERIOD 60    // Seconds
+  #define THERMAL_PROTECTION_BED_HYSTERESIS 10 // Degrees Celsius
 
   /**
    * Whenever an M140 or M190 increases the target temperature the firmware will wait for the
@@ -94,7 +94,7 @@
    * If you get too many "Heating failed" errors, increase WATCH_BED_TEMP_PERIOD and/or decrease
    * WATCH_BED_TEMP_INCREASE. (WATCH_BED_TEMP_INCREASE should not be below 2.)
    */
-  #define WATCH_BED_TEMP_PERIOD 60                // Seconds
+  #define WATCH_BED_TEMP_PERIOD 120                // Seconds
   #define WATCH_BED_TEMP_INCREASE 2               // Degrees Celsius
 #endif
 
@@ -145,7 +145,7 @@
 
 // The number of consecutive low temperature errors that can occur
 // before a min_temp_error is triggered. (Shouldn't be more than 10.)
-//#define MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED 0
+//#define MAX_CONSECUTIVE_LOW_TEMPERATURE_ERROR_ALLOWED 5
 
 // The number of milliseconds a hotend will preheat before starting to check
 // the temperature. This value should NOT be set to the time it takes the
@@ -212,7 +212,7 @@
  * Multiple extruders can be assigned to the same pin in which case
  * the fan will turn on when any selected extruder is above the threshold.
  */
-#define E0_AUTO_FAN_PIN -1
+#define E0_AUTO_FAN_PIN 2
 #define E1_AUTO_FAN_PIN -1
 #define E2_AUTO_FAN_PIN -1
 #define E3_AUTO_FAN_PIN -1
@@ -359,7 +359,7 @@
 #define DEFAULT_STEPPER_DEACTIVE_TIME 120
 #define DISABLE_INACTIVE_X true
 #define DISABLE_INACTIVE_Y true
-#define DISABLE_INACTIVE_Z true  // set to false if the nozzle will fall down on your printed part when print has finished.
+#define DISABLE_INACTIVE_Z false  // set to false if the nozzle will fall down on your printed part when print has finished.
 #define DISABLE_INACTIVE_E true
 
 #define DEFAULT_MINIMUMFEEDRATE       0.0     // minimum feedrate
@@ -416,7 +416,7 @@
  *    M909, M910 & LCD - only PRINTRBOARD_REVF & RIGIDBOARD_V2
  */
 //#define PWM_MOTOR_CURRENT {1300, 1300, 1250} // Values in milliamps
-//#define DIGIPOT_MOTOR_CURRENT {135,135,135,135,135} // Values 0-255 (RAMBO 135 = ~0.75A, 185 = ~1A)
+#define DIGIPOT_MOTOR_CURRENT {135,135,185,100,135} // Values 0-255 (RAMBO 135 = ~0.75A, 185 = ~1A)
 //#define DAC_MOTOR_CURRENT_DEFAULT { 70, 80, 90, 80 } // Default drive percent - X, Y, Z, E axis
 
 // Uncomment to enable an I2C based DIGIPOT like on the Azteeg X3 Pro
@@ -431,8 +431,8 @@
 //===========================================================================
 
 #define ENCODER_RATE_MULTIPLIER         // If defined, certain menu edit operations automatically multiply the steps when the encoder is moved quickly
-#define ENCODER_10X_STEPS_PER_SEC 75    // If the encoder steps per sec exceeds this value, multiply steps moved x10 to quickly advance the value
-#define ENCODER_100X_STEPS_PER_SEC 160  // If the encoder steps per sec exceeds this value, multiply steps moved x100 to really quickly advance the value
+#define ENCODER_10X_STEPS_PER_SEC 50    // If the encoder steps per sec exceeds this value, multiply steps moved x10 to quickly advance the value
+#define ENCODER_100X_STEPS_PER_SEC 150  // If the encoder steps per sec exceeds this value, multiply steps moved x100 to really quickly advance the value
 
 //#define CHDK 4        //Pin for triggering CHDK to take a picture see how to use it here http://captain-slow.dk/2014/03/09/3d-printing-timelapses/
 #define CHDK_DELAY 50 //How long in ms the pin should stay HIGH before going LOW again
@@ -440,13 +440,13 @@
 // @section lcd
 
 // Include a page of printer information in the LCD Main Menu
-//#define LCD_INFO_MENU
+#define LCD_INFO_MENU
 
 // On the Info Screen, display XY with one decimal place when possible
-//#define LCD_DECIMAL_SMALL_XY
+#define LCD_DECIMAL_SMALL_XY
 
 // The timeout (in ms) to return to the status screen from sub-menus
-//#define LCD_TIMEOUT_TO_STATUS 15000
+#define LCD_TIMEOUT_TO_STATUS 500000
 
 #if ENABLED(SDSUPPORT)
 
@@ -518,7 +518,7 @@
   #endif
 
   // This allows hosts to request long names for files and folders with M33
-  //#define LONG_FILENAME_HOST_SUPPORT
+  #define LONG_FILENAME_HOST_SUPPORT
 
   // This option allows you to abort SD printing when any endstop is triggered.
   // This feature must be enabled with "M540 S1" or from the LCD menu.
@@ -581,7 +581,7 @@
  *
  * Warning: Does not respect endstops!
  */
-//#define BABYSTEPPING
+#define BABYSTEPPING
 #if ENABLED(BABYSTEPPING)
   #define BABYSTEP_XY              // Also enable X/Y Babystepping. Not supported on DELTA!
   #define BABYSTEP_INVERT_Z false  // Change if Z babysteps should go the other way
@@ -615,7 +615,7 @@
  * K=0 means advance disabled.
  * See Marlin documentation for calibration instructions.
  */
-//#define LIN_ADVANCE
+#define LIN_ADVANCE
 
 #if ENABLED(LIN_ADVANCE)
   #define LIN_ADVANCE_K 75
@@ -677,7 +677,7 @@
 #define N_ARC_CORRECTION 25
 
 // Support for G5 with XYZE destination and IJPQ offsets. Requires ~2666 bytes.
-//#define BEZIER_CURVE_SUPPORT
+#define BEZIER_CURVE_SUPPORT
 
 // G38.2 and G38.3 Probe Target
 // Enable PROBE_DOUBLE_TOUCH if you want G38 to double touch
@@ -725,7 +725,7 @@
 // For debug-echo: 128 bytes for the optimal speed.
 // Other output doesn't need to be that speedy.
 // :[0, 2, 4, 8, 16, 32, 64, 128, 256]
-#define TX_BUFFER_SIZE 0
+#define TX_BUFFER_SIZE 128
 
 // Enable an emergency-command parser to intercept certain commands as they
 // enter the serial receive buffer, so they cannot be blocked.
@@ -750,7 +750,7 @@
 // until then, intended retractions can be detected by moves that only extrude and the direction.
 // the moves are than replaced by the firmware controlled ones.
 
-//#define FWRETRACT  //ONLY PARTIALLY TESTED
+#define FWRETRACT  //ONLY PARTIALLY TESTED
 #if ENABLED(FWRETRACT)
   #define MIN_RETRACT 0.1                //minimum extruded mm to accept a automatic gcode retraction attempt
   #define RETRACT_LENGTH 3               //default retract length (positive mm)
@@ -770,7 +770,7 @@
  * Requires an LCD display.
  * This feature is required for the default FILAMENT_RUNOUT_SCRIPT.
  */
-//#define FILAMENT_CHANGE_FEATURE
+#define FILAMENT_CHANGE_FEATURE
 #if ENABLED(FILAMENT_CHANGE_FEATURE)
   #define FILAMENT_CHANGE_X_POS 3             // X position of hotend
   #define FILAMENT_CHANGE_Y_POS 3             // Y position of hotend
@@ -780,21 +780,21 @@
   #define FILAMENT_CHANGE_RETRACT_FEEDRATE 60 // Initial retract feedrate in mm/s
   #define FILAMENT_CHANGE_RETRACT_LENGTH 2    // Initial retract in mm
                                               // It is a short retract used immediately after print interrupt before move to filament exchange position
-  #define FILAMENT_CHANGE_UNLOAD_FEEDRATE 10  // Unload filament feedrate in mm/s - filament unloading can be fast
+  #define FILAMENT_CHANGE_UNLOAD_FEEDRATE 50  // Unload filament feedrate in mm/s - filament unloading can be fast
   #define FILAMENT_CHANGE_UNLOAD_LENGTH 100   // Unload filament length from hotend in mm
                                               // Longer length for bowden printers to unload filament from whole bowden tube,
                                               // shorter length for printers without bowden to unload filament from extruder only,
                                               // 0 to disable unloading for manual unloading
   #define FILAMENT_CHANGE_LOAD_FEEDRATE 6     // Load filament feedrate in mm/s - filament loading into the bowden tube can be fast
-  #define FILAMENT_CHANGE_LOAD_LENGTH 0       // Load filament length over hotend in mm
+  #define FILAMENT_CHANGE_LOAD_LENGTH 100     // Load filament length over hotend in mm
                                               // Longer length for bowden printers to fast load filament into whole bowden tube over the hotend,
                                               // Short or zero length for printers without bowden where loading is not used
-  #define FILAMENT_CHANGE_EXTRUDE_FEEDRATE 3  // Extrude filament feedrate in mm/s - must be slower than load feedrate
-  #define FILAMENT_CHANGE_EXTRUDE_LENGTH 50   // Extrude filament length in mm after filament is loaded over the hotend,
+  #define FILAMENT_CHANGE_EXTRUDE_FEEDRATE 5  // Extrude filament feedrate in mm/s - must be slower than load feedrate
+  #define FILAMENT_CHANGE_EXTRUDE_LENGTH 100  // Extrude filament length in mm after filament is loaded over the hotend,
                                               // 0 to disable for manual extrusion
                                               // Filament can be extruded repeatedly from the filament exchange menu to fill the hotend,
                                               // or until outcoming filament color is not clear for filament color change
-  #define FILAMENT_CHANGE_NOZZLE_TIMEOUT 45   // Turn off nozzle if user doesn't change filament within this time limit in seconds
+  #define FILAMENT_CHANGE_NOZZLE_TIMEOUT 240  // Turn off nozzle if user doesn't change filament within this time limit in seconds
   #define FILAMENT_CHANGE_NUMBER_OF_ALERT_BEEPS 5 // Number of alert beeps before printer goes quiet
   #define FILAMENT_CHANGE_NO_STEPPER_TIMEOUT  // Enable to have stepper motors hold position during filament change
                                               // even if it takes longer than DEFAULT_STEPPER_DEACTIVE_TIME.
