@@ -60,6 +60,9 @@ int lcd_preheat_hotend_temp[2], lcd_preheat_bed_temp[2], lcd_preheat_fan_speed[2
 
 uint8_t lcd_status_message_level;
 char lcd_status_message[3 * (LCD_WIDTH) + 1] = WELCOME_MSG; // worst case is kana with up to 3*LCD_WIDTH+1
+#if ENABLED(STATUS_MESSAGE_SCROLLING)
+  uint8_t status_scroll_pos = 0;
+#endif
 
 #if ENABLED(DOGLCD)
   #include "ultralcd_impl_DOGM.h"
@@ -478,9 +481,10 @@ uint16_t max_display_update_time = 0;
   /**
    * Show "Moving..." till moves are done, then revert to previous display.
    */
-  inline void lcd_synchronize() {
+  inline void lcd_synchronize(const char * const msg=NULL) {
     static bool no_reentry = false;
-    lcd_implementation_drawmenu_static(LCD_HEIGHT >= 4 ? 1 : 0, PSTR(MSG_MOVING));
+    const static char moving[] PROGMEM = MSG_MOVING;
+    lcd_implementation_drawmenu_static(LCD_HEIGHT >= 4 ? 1 : 0, msg ? msg : moving);
     if (no_reentry) return;
 
     // Make this the current handler till all moves are done
@@ -704,19 +708,6 @@ void kill_screen(const char* lcd_msg) {
 
   #endif // SDSUPPORT
 
-  #if ENABLED(MENU_ITEM_CASE_LIGHT)
-
-    extern bool case_light_on;
-    extern void update_case_light();
-
-    void toggle_case_light() {
-      case_light_on ^= true;
-      lcdDrawUpdate = LCDVIEW_KEEP_REDRAWING;
-      update_case_light();
-    }
-
-  #endif // MENU_ITEM_CASE_LIGHT
-
   #if ENABLED(BLTOUCH)
 
     /**
@@ -786,6 +777,11 @@ void kill_screen(const char* lcd_msg) {
    *
    */
 
+  #if ENABLED(MENU_ITEM_CASE_LIGHT)
+    extern bool case_light_on;
+    extern void update_case_light();
+  #endif
+
   void lcd_main_menu() {
     START_MENU();
     MENU_BACK(MSG_WATCH);
@@ -801,10 +797,7 @@ void kill_screen(const char* lcd_msg) {
     // Switch case light on/off
     //
     #if ENABLED(MENU_ITEM_CASE_LIGHT)
-      if (case_light_on)
-        MENU_ITEM(function, MSG_LIGHTS_OFF, toggle_case_light);
-      else
-        MENU_ITEM(function, MSG_LIGHTS_ON, toggle_case_light);
+      MENU_ITEM_EDIT_CALLBACK(bool, MSG_CASE_LIGHT, case_light_on, update_case_light);
     #endif
 
     if (planner.movesplanned() || IS_SD_PRINTING) {
@@ -1403,6 +1396,11 @@ void kill_screen(const char* lcd_msg) {
 
   #endif
 
+  #if ENABLED(EEPROM_SETTINGS)
+    static void lcd_store_settings()   { lcd_completion_feedback(settings.save()); }
+    static void lcd_load_settings()    { lcd_completion_feedback(settings.load()); }
+  #endif
+
   #if ENABLED(LCD_BED_LEVELING)
 
     /**
@@ -1467,7 +1465,7 @@ void kill_screen(const char* lcd_msg) {
 
           // The last G29 will record but not move
           if (manual_probe_index == total_probe_points - 1)
-            enqueue_and_echo_commands_P("G29 V1");
+            enqueue_and_echo_commands_P(PSTR("G29 V1"));
 
         #endif
 
@@ -1481,13 +1479,15 @@ void kill_screen(const char* lcd_msg) {
           #if MANUAL_PROBE_HEIGHT > 0
             current_position[Z_AXIS] = LOGICAL_Z_POSITION(Z_MIN_POS) + MANUAL_PROBE_HEIGHT;
             line_to_current(Z_AXIS);
-            lcd_synchronize();
+          #endif
+
+          #if MANUAL_PROBE_HEIGHT > 0 || ENABLED(MESH_BED_LEVELING)
+            lcd_synchronize(PSTR(MSG_LEVEL_BED_DONE));
           #endif
 
           // Enable leveling, if needed
           #if ENABLED(MESH_BED_LEVELING)
 
-            lcd_synchronize();
             mbl.set_has_mesh(true);
             mesh_probing_done();
 
@@ -1607,19 +1607,56 @@ void kill_screen(const char* lcd_msg) {
      * Step 2: Continue Bed Leveling...
      */
     void _lcd_level_bed_continue() {
-        defer_return_to_status = true;
-        axis_homed[X_AXIS] = axis_homed[Y_AXIS] = axis_homed[Z_AXIS] = false;
-        lcd_goto_screen(_lcd_level_bed_homing);
-        enqueue_and_echo_commands_P(PSTR("G28"));
+      defer_return_to_status = true;
+      axis_homed[X_AXIS] = axis_homed[Y_AXIS] = axis_homed[Z_AXIS] = false;
+      lcd_goto_screen(_lcd_level_bed_homing);
+      enqueue_and_echo_commands_P(PSTR("G28"));
     }
 
+    static bool _level_state;
+    void _lcd_toggle_bed_leveling() { set_bed_leveling_enabled(_level_state); }
+    void _lcd_set_z_fade_height() { set_z_fade_height(planner.z_fade_height); }
+
     /**
-     * Step 1: Bed Level entry-point: "Cancel" or "Level Bed"
+     * Step 1: Bed Level entry-point
+     *  - Cancel
+     *  - Level Bed >
+     *  - Leveling On/Off (if there is leveling data)
+     *  - Fade Height (Req: ENABLE_LEVELING_FADE_HEIGHT)
+     *  - Mesh Z Offset (Req: MESH_BED_LEVELING)
+     *  - Z Probe Offset (Req: HAS_BED_PROBE, Opt: BABYSTEP_ZPROBE_OFFSET)
+     *  - Load Settings (Req: EEPROM_SETTINGS)
+     *  - Save Settings (Req: EEPROM_SETTINGS)
      */
     void lcd_level_bed() {
       START_MENU();
-      MENU_BACK(MSG_LEVEL_BED_CANCEL);
+      MENU_BACK(MSG_PREPARE);
       MENU_ITEM(submenu, MSG_LEVEL_BED, _lcd_level_bed_continue);
+      if (leveling_is_valid()) {      // Leveling data exists? Show more options.
+        _level_state = leveling_is_active();
+        MENU_ITEM_EDIT_CALLBACK(bool, MSG_BED_LEVELING, &_level_state, _lcd_toggle_bed_leveling);
+      }
+
+      #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
+        set_z_fade_height(planner.z_fade_height);
+        MENU_MULTIPLIER_ITEM_EDIT_CALLBACK(float62, MSG_Z_FADE_HEIGHT, &planner.z_fade_height, 0.0, 100.0, _lcd_set_z_fade_height);
+      #endif
+
+      // Manual bed leveling, Bed Z:
+      #if ENABLED(MESH_BED_LEVELING)
+        MENU_ITEM_EDIT(float43, MSG_BED_Z, &mbl.z_offset, -1, 1);
+      #endif
+
+      #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
+        MENU_ITEM(submenu, MSG_ZPROBE_ZOFFSET, lcd_babystep_zoffset);
+      #elif HAS_BED_PROBE
+        MENU_ITEM_EDIT_CALLBACK(float32, MSG_ZPROBE_ZOFFSET, &zprobe_zoffset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX, lcd_refresh_zprobe_zoffset);
+      #endif
+
+      #if ENABLED(EEPROM_SETTINGS)
+        MENU_ITEM(function, MSG_LOAD_EEPROM, lcd_load_settings);
+        MENU_ITEM(function, MSG_STORE_EEPROM, lcd_store_settings);
+      #endif
       END_MENU();
     }
 
@@ -2026,7 +2063,7 @@ void kill_screen(const char* lcd_msg) {
       #if ENABLED(PROBE_MANUALLY)
         if (!g29_in_progress)
       #endif
-      MENU_ITEM(submenu, MSG_LEVEL_BED, lcd_level_bed);
+      MENU_ITEM(submenu, MSG_BED_LEVELING, lcd_level_bed);
     #endif
 
     #if HAS_M206_COMMAND
@@ -2444,11 +2481,6 @@ void kill_screen(const char* lcd_msg) {
 
   #endif // HAS_LCD_CONTRAST
 
-  #if ENABLED(EEPROM_SETTINGS)
-    static void lcd_store_settings()   { lcd_completion_feedback(settings.save()); }
-    static void lcd_load_settings()    { lcd_completion_feedback(settings.load()); }
-  #endif
-
   static void lcd_factory_settings() {
     settings.reset();
     lcd_completion_feedback();
@@ -2746,6 +2778,13 @@ void kill_screen(const char* lcd_msg) {
    */
   void lcd_control_temperature_preheat_material2_settings_menu() { _lcd_control_temperature_preheat_settings_menu(1); }
 
+
+  /**
+   *
+   * "Control" > "Motion" submenu
+   *
+   */
+
   void _reset_acceleration_rates() { planner.reset_acceleration_rates(); }
   #if ENABLED(DISTINCT_E_FACTORS)
     void _reset_e_acceleration_rate(const uint8_t e) { if (e == active_extruder) _reset_acceleration_rates(); }
@@ -2783,40 +2822,16 @@ void kill_screen(const char* lcd_msg) {
     #endif // E_STEPPERS > 2
   #endif
 
-  /**
-   *
-   * "Control" > "Motion" submenu
-   *
-   */
   #if HAS_BED_PROBE && DISABLED(BABYSTEP_ZPROBE_OFFSET)
     static void lcd_refresh_zprobe_zoffset() { refresh_zprobe_zoffset(); }
   #endif
 
-  void lcd_control_motion_menu() {
+  // M203 / M205 Feedrates
+  void lcd_control_motion_feedrate_menu() {
     START_MENU();
-    MENU_BACK(MSG_CONTROL);
-    #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
-      MENU_ITEM(submenu, MSG_ZPROBE_ZOFFSET, lcd_babystep_zoffset);
-    #elif HAS_BED_PROBE
-      MENU_ITEM_EDIT_CALLBACK(float32, MSG_ZPROBE_ZOFFSET, &zprobe_zoffset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX, lcd_refresh_zprobe_zoffset);
-    #endif
-    // Manual bed leveling, Bed Z:
-    #if ENABLED(MESH_BED_LEVELING) && ENABLED(LCD_BED_LEVELING)
-      MENU_ITEM_EDIT(float43, MSG_BED_Z, &mbl.z_offset, -1, 1);
-    #endif
-    MENU_ITEM_EDIT(float5, MSG_ACC, &planner.acceleration, 10, 99000);
-    MENU_ITEM_EDIT(float3, MSG_VX_JERK, &planner.max_jerk[X_AXIS], 1, 990);
-    MENU_ITEM_EDIT(float3, MSG_VY_JERK, &planner.max_jerk[Y_AXIS], 1, 990);
-    #if ENABLED(DELTA)
-      MENU_ITEM_EDIT(float3, MSG_VZ_JERK, &planner.max_jerk[Z_AXIS], 1, 990);
-    #else
-      MENU_ITEM_EDIT(float52, MSG_VZ_JERK, &planner.max_jerk[Z_AXIS], 0.1, 990);
-    #endif
-    MENU_ITEM_EDIT(float3, MSG_VE_JERK, &planner.max_jerk[E_AXIS], 1, 990);
+    MENU_BACK(MSG_MOTION);
 
-    //
-    // M203 Settings
-    //
+    // M203 Max Feedrate
     MENU_ITEM_EDIT(float3, MSG_VMAX MSG_X, &planner.max_feedrate_mm_s[X_AXIS], 1, 999);
     MENU_ITEM_EDIT(float3, MSG_VMAX MSG_Y, &planner.max_feedrate_mm_s[Y_AXIS], 1, 999);
     MENU_ITEM_EDIT(float3, MSG_VMAX MSG_Z, &planner.max_feedrate_mm_s[Z_AXIS], 1, 999);
@@ -2838,12 +2853,30 @@ void kill_screen(const char* lcd_msg) {
       MENU_ITEM_EDIT(float3, MSG_VMAX MSG_E, &planner.max_feedrate_mm_s[E_AXIS], 1, 999);
     #endif
 
+    // M205 S Min Feedrate
     MENU_ITEM_EDIT(float3, MSG_VMIN, &planner.min_feedrate_mm_s, 0, 999);
+
+    // M205 T Min Travel Feedrate
     MENU_ITEM_EDIT(float3, MSG_VTRAV_MIN, &planner.min_travel_feedrate_mm_s, 0, 999);
 
-    //
-    // M201 Settings
-    //
+    END_MENU();
+  }
+
+  // M201 / M204 Accelerations
+  void lcd_control_motion_acceleration_menu() {
+    START_MENU();
+    MENU_BACK(MSG_MOTION);
+
+    // M204 P Acceleration
+    MENU_ITEM_EDIT(float5, MSG_ACC, &planner.acceleration, 10, 99000);
+
+    // M204 R Retract Acceleration
+    MENU_ITEM_EDIT(float5, MSG_A_RETRACT, &planner.retract_acceleration, 100, 99000);
+
+    // M204 T Travel Acceleration
+    MENU_ITEM_EDIT(float5, MSG_A_TRAVEL, &planner.travel_acceleration, 100, 99000);
+
+    // M201 settings
     MENU_ITEM_EDIT_CALLBACK(long5, MSG_AMAX MSG_X, &planner.max_acceleration_mm_per_s2[X_AXIS], 100, 99000, _reset_acceleration_rates);
     MENU_ITEM_EDIT_CALLBACK(long5, MSG_AMAX MSG_Y, &planner.max_acceleration_mm_per_s2[Y_AXIS], 100, 99000, _reset_acceleration_rates);
     MENU_ITEM_EDIT_CALLBACK(long5, MSG_AMAX MSG_Z, &planner.max_acceleration_mm_per_s2[Z_AXIS], 10, 99000, _reset_acceleration_rates);
@@ -2865,12 +2898,31 @@ void kill_screen(const char* lcd_msg) {
       MENU_ITEM_EDIT_CALLBACK(long5, MSG_AMAX MSG_E, &planner.max_acceleration_mm_per_s2[E_AXIS], 100, 99000, _reset_acceleration_rates);
     #endif
 
-    MENU_ITEM_EDIT(float5, MSG_A_RETRACT, &planner.retract_acceleration, 100, 99000);
-    MENU_ITEM_EDIT(float5, MSG_A_TRAVEL, &planner.travel_acceleration, 100, 99000);
+    END_MENU();
+  }
 
-    //
-    // M92 Settings
-    //
+  // M205 Jerk
+  void lcd_control_motion_jerk_menu() {
+    START_MENU();
+    MENU_BACK(MSG_MOTION);
+
+    MENU_ITEM_EDIT(float3, MSG_VX_JERK, &planner.max_jerk[X_AXIS], 1, 990);
+    MENU_ITEM_EDIT(float3, MSG_VY_JERK, &planner.max_jerk[Y_AXIS], 1, 990);
+    #if ENABLED(DELTA)
+      MENU_ITEM_EDIT(float3, MSG_VZ_JERK, &planner.max_jerk[Z_AXIS], 1, 990);
+    #else
+      MENU_ITEM_EDIT(float52, MSG_VZ_JERK, &planner.max_jerk[Z_AXIS], 0.1, 990);
+    #endif
+    MENU_ITEM_EDIT(float3, MSG_VE_JERK, &planner.max_jerk[E_AXIS], 1, 990);
+
+    END_MENU();
+  }
+
+  // M92 Steps-per-mm
+  void lcd_control_motion_steps_per_mm_menu() {
+    START_MENU();
+    MENU_BACK(MSG_MOTION);
+
     MENU_ITEM_EDIT_CALLBACK(float62, MSG_XSTEPS, &planner.axis_steps_per_mm[X_AXIS], 5, 9999, _planner_refresh_positioning);
     MENU_ITEM_EDIT_CALLBACK(float62, MSG_YSTEPS, &planner.axis_steps_per_mm[Y_AXIS], 5, 9999, _planner_refresh_positioning);
     MENU_ITEM_EDIT_CALLBACK(float62, MSG_ZSTEPS, &planner.axis_steps_per_mm[Z_AXIS], 5, 9999, _planner_refresh_positioning);
@@ -2892,9 +2944,35 @@ void kill_screen(const char* lcd_msg) {
       MENU_ITEM_EDIT_CALLBACK(float62, MSG_ESTEPS, &planner.axis_steps_per_mm[E_AXIS], 5, 9999, _planner_refresh_positioning);
     #endif
 
+    END_MENU();
+  }
+
+  void lcd_control_motion_menu() {
+    START_MENU();
+    MENU_BACK(MSG_CONTROL);
+
+    #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
+      MENU_ITEM(submenu, MSG_ZPROBE_ZOFFSET, lcd_babystep_zoffset);
+    #elif HAS_BED_PROBE
+      MENU_ITEM_EDIT_CALLBACK(float32, MSG_ZPROBE_ZOFFSET, &zprobe_zoffset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX, lcd_refresh_zprobe_zoffset);
+    #endif
+
+    // M203 / M205 Feedrate items
+    MENU_ITEM(submenu, MSG_FEEDRATE, lcd_control_motion_feedrate_menu);
+
+    // M201 Acceleration items
+    MENU_ITEM(submenu, MSG_ACCELERATION, lcd_control_motion_acceleration_menu);
+
+    // M205 Max Jerk
+    MENU_ITEM(submenu, MSG_JERK, lcd_control_motion_jerk_menu);
+
+    // M92 Steps Per mm
+    MENU_ITEM(submenu, MSG_STEPS_PER_MM, lcd_control_motion_steps_per_mm_menu);
+
     #if ENABLED(ABORT_ON_ENDSTOP_HIT_FEATURE_ENABLED)
       MENU_ITEM_EDIT(bool, MSG_ENDSTOP_ABORT, &stepper.abort_on_endstop_hit);
     #endif
+
     END_MENU();
   }
 
@@ -3961,22 +4039,29 @@ void lcd_update() {
   } // ELAPSED(ms, next_lcd_update_ms)
 }
 
-void set_utf_strlen(char* s, uint8_t n) {
-  uint8_t i = 0, j = 0;
-  while (s[i] && (j < n)) {
-    #if ENABLED(MAPPER_NON)
-      j++;
-    #else
-      if ((s[i] & 0xC0u) != 0x80u) j++;
-    #endif
-    i++;
+#if DISABLED(STATUS_MESSAGE_SCROLLING)
+
+  void set_utf_strlen(char* s, uint8_t n) {
+    uint8_t i = 0, j = 0;
+    while (s[i] && (j < n)) {
+      #if ENABLED(MAPPER_NON)
+        j++;
+      #else
+        if ((s[i] & 0xC0u) != 0x80u) j++;
+      #endif
+      i++;
+    }
+    while (j++ < n) s[i++] = ' ';
+    s[i] = '\0';
   }
-  while (j++ < n) s[i++] = ' ';
-  s[i] = '\0';
-}
+
+#endif // !STATUS_MESSAGE_SCROLLING
 
 void lcd_finishstatus(bool persist=false) {
-  set_utf_strlen(lcd_status_message, LCD_WIDTH);
+  #if DISABLED(STATUS_MESSAGE_SCROLLING)
+    set_utf_strlen(lcd_status_message, LCD_WIDTH);
+  #endif
+
   #if !(ENABLED(LCD_PROGRESS_BAR) && (PROGRESS_MSG_EXPIRE > 0))
     UNUSED(persist);
   #endif
@@ -3991,6 +4076,10 @@ void lcd_finishstatus(bool persist=false) {
 
   #if ENABLED(FILAMENT_LCD_DISPLAY) && ENABLED(SDSUPPORT)
     previous_lcd_status_ms = millis();  //get status message to show up for a while
+  #endif
+
+  #if ENABLED(STATUS_MESSAGE_SCROLLING)
+    status_scroll_pos = 0;
   #endif
 }
 
