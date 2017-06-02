@@ -319,11 +319,11 @@
  * Advanced Pause
  */
 #if ENABLED(ADVANCED_PAUSE_FEATURE)
-  #if DISABLED(ULTIPANEL)
+  #if DISABLED(NEWPANEL)
     #error "ADVANCED_PAUSE_FEATURE currently requires an LCD controller."
   #elif ENABLED(EXTRUDER_RUNOUT_PREVENT)
     #error "EXTRUDER_RUNOUT_PREVENT is incompatible with ADVANCED_PAUSE_FEATURE."
-  #elif ENABLED(PARK_HEAD_ON_PAUSE) && DISABLED(SDSUPPORT) && DISABLED(ULTIPANEL) && DISABLED(EMERGENCY_PARSER)
+  #elif ENABLED(PARK_HEAD_ON_PAUSE) && DISABLED(SDSUPPORT) && DISABLED(NEWPANEL) && DISABLED(EMERGENCY_PARSER)
     #error "PARK_HEAD_ON_PAUSE requires SDSUPPORT, EMERGENCY_PARSER, or an LCD controller."
   #endif
 #endif
@@ -396,6 +396,8 @@
     #error "Please select either MIXING_EXTRUDER or SWITCHING_EXTRUDER, not both."
   #elif ENABLED(SINGLENOZZLE)
     #error "MIXING_EXTRUDER is incompatible with SINGLENOZZLE."
+  #elif ENABLED(LIN_ADVANCE)
+    #error "MIXING_EXTRUDER is incompatible with LIN_ADVANCE."
   #endif
 #endif
 
@@ -407,10 +409,10 @@
 #endif
 
 /**
- * Servo deactivation depends on servo endstops
+ * Servo deactivation depends on servo endstops or switching nozzle
  */
-#if ENABLED(DEACTIVATE_SERVOS_AFTER_MOVE) && !HAS_Z_SERVO_ENDSTOP
-  #error "Z_ENDSTOP_SERVO_NR is required for DEACTIVATE_SERVOS_AFTER_MOVE."
+#if ENABLED(DEACTIVATE_SERVOS_AFTER_MOVE) && !HAS_Z_SERVO_ENDSTOP && !defined(SWITCHING_NOZZLE_SERVO_NR)
+  #error "Z_ENDSTOP_SERVO_NR or switching nozzle is required for DEACTIVATE_SERVOS_AFTER_MOVE."
 #endif
 
 /**
@@ -596,8 +598,12 @@ static_assert(1 >= 0
 /**
  * LCD_BED_LEVELING requirements
  */
-#if ENABLED(LCD_BED_LEVELING) && DISABLED(MESH_BED_LEVELING) && !(HAS_ABL && ENABLED(PROBE_MANUALLY))
-  #error "LCD_BED_LEVELING requires MESH_BED_LEVELING or PROBE_MANUALLY."
+#if ENABLED(LCD_BED_LEVELING)
+  #if DISABLED(ULTIPANEL)
+    #error "LCD_BED_LEVELING requires an LCD controller."
+  #elif DISABLED(MESH_BED_LEVELING) && !(HAS_ABL && ENABLED(PROBE_MANUALLY))
+    #error "LCD_BED_LEVELING requires MESH_BED_LEVELING or PROBE_MANUALLY."
+  #endif
 #endif
 
 /**

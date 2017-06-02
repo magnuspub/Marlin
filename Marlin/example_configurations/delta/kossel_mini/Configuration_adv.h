@@ -220,13 +220,19 @@
 #define EXTRUDER_AUTO_FAN_TEMPERATURE 50
 #define EXTRUDER_AUTO_FAN_SPEED   255  // == full speed
 
-// Define a pin to turn case light on/off
-//#define CASE_LIGHT_PIN 4
-#if PIN_EXISTS(CASE_LIGHT)
-  #define INVERT_CASE_LIGHT false   // Set to true if HIGH is the OFF state (active low)
-  //#define CASE_LIGHT_DEFAULT_ON   // Uncomment to set default state to on
-  //#define MENU_ITEM_CASE_LIGHT    // Uncomment to have a Case Light On / Off entry in main menu
-#endif
+/**
+ * M355 Case Light on-off / brightness
+ */
+//#define CASE_LIGHT_ENABLE 
+#if ENABLED(CASE_LIGHT_ENABLE) 
+  #define CASE_LIGHT_PIN 4          // can be defined here or in the pins_XXX.h file for your board 
+                                    //  pins_XXX.h file overrides this one 
+  #define INVERT_CASE_LIGHT false             // set to true if case light is ON when pin is at 0 
+  #define CASE_LIGHT_DEFAULT_ON true          // set default power up state to on or off
+  #define CASE_LIGHT_DEFAULT_BRIGHTNESS 105   // set power up brightness 0-255 ( only used if on PWM
+                                              // and if CASE_LIGHT_DEFAULT is set to on
+  //#define MENU_ITEM_CASE_LIGHT              // Uncomment to have a Case Light entry in main menu 
+#endif 
 
 //===========================================================================
 //============================ Mechanical Settings ==========================
@@ -1216,12 +1222,11 @@
 //#define NO_WORKSPACE_OFFSETS
 
 /**
- * This affects the way Marlin outputs blacks of spaces via serial connection by multiplying the number
- * of spaces to be output by the ratio set below.  This allows for better alignment of output for commands
- * like G29 O, which renders a mesh/grid.
+ * Set the number of proportional font spaces required to fill up a typical character space.
+ * This can help to better align the output of commands like `G29 O` Mesh Output.
  *
- * For clients that use a fixed-width font (like OctoPrint), leave this at 1.0; otherwise, adjust
- * accordingly for your client and font.
+ * For clients that use a fixed-width font (like OctoPrint), leave this set to 1.0.
+ * Otherwise, adjust according to your client and font.
  */
 #define PROPORTIONAL_FONT_RATIO 1.0
 
@@ -1229,5 +1234,28 @@
  * Spend 28 bytes of SRAM to optimize the GCode parser
  */
 #define FASTER_GCODE_PARSER
+
+/**
+ * User-defined menu items that execute custom GCode
+ */
+//#define CUSTOM_USER_MENUS
+#if ENABLED(CUSTOM_USER_MENUS)
+  #define USER_SCRIPT_DONE "M117 User Script Done"
+
+  #define USER_DESC_1 "Home & UBL Info"
+  #define USER_GCODE_1 "G28\nG29 W"
+
+  #define USER_DESC_2 "Preheat for PLA"
+  #define USER_GCODE_2 "M140 S" STRINGIFY(PREHEAT_1_TEMP_BED) "\nM104 S" STRINGIFY(PREHEAT_1_TEMP_HOTEND)
+
+  #define USER_DESC_3 "Preheat for ABS"
+  #define USER_GCODE_3 "M140 S" STRINGIFY(PREHEAT_2_TEMP_BED) "\nM104 S" STRINGIFY(PREHEAT_2_TEMP_HOTEND)
+
+  #define USER_DESC_4 "Heat Bed/Home/Level"
+  #define USER_GCODE_4 "M140 S" STRINGIFY(PREHEAT_2_TEMP_BED) "\nG28\nG29"
+
+  #define USER_DESC_5 "Home & Info"
+  #define USER_GCODE_5 "G28\nM503"
+#endif
 
 #endif // CONFIGURATION_ADV_H

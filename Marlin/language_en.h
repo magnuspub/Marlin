@@ -156,6 +156,9 @@
 #ifndef MSG_LEVEL_BED
   #define MSG_LEVEL_BED                       _UxGT("Level bed")
 #endif
+#ifndef MSG_USER_MENU
+  #define MSG_USER_MENU                       _UxGT("Custom Commands")
+#endif
 
 #if ENABLED(AUTO_BED_LEVELING_UBL)
   #ifndef MSG_UBL_UNHOMED
@@ -394,8 +397,8 @@
 #ifndef MSG_VE_JERK
   #define MSG_VE_JERK                         _UxGT("Ve-jerk")
 #endif
-#ifndef MSG_FEEDRATE
-  #define MSG_FEEDRATE                        _UxGT("Feedrate")
+#ifndef MSG_VELOCITY
+  #define MSG_VELOCITY                        _UxGT("Velocity")
 #endif
 #ifndef MSG_VMAX
   #define MSG_VMAX                            _UxGT("Vmax ")
@@ -703,7 +706,9 @@
 #ifndef MSG_CASE_LIGHT
   #define MSG_CASE_LIGHT                      _UxGT("Case light")
 #endif
-
+#ifndef MSG_CASE_LIGHT_BRIGHTNESS
+  #define MSG_CASE_LIGHT_BRIGHTNESS           _UxGT("Light BRIGHTNESS")
+#endif
 #if LCD_WIDTH >= 20
   #ifndef MSG_INFO_PRINT_COUNT
     #define MSG_INFO_PRINT_COUNT              _UxGT("Print Count")

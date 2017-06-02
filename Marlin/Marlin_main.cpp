@@ -176,7 +176,7 @@
  * M304 - Set bed PID parameters P I and D. (Requires PIDTEMPBED)
  * M350 - Set microstepping mode. (Requires digital microstepping pins.)
  * M351 - Toggle MS1 MS2 pins directly. (Requires digital microstepping pins.)
- * M355 - Turn the Case Light on/off and set its brightness. (Requires CASE_LIGHT_PIN)
+ * M355 - Set Case Light on/off and set brightness. (Requires CASE_LIGHT_PIN)
  * M380 - Activate solenoid on active extruder. (Requires EXT_SOLENOID)
  * M381 - Disable all solenoids. (Requires EXT_SOLENOID)
  * M400 - Finish all moves.
@@ -566,16 +566,6 @@ static uint8_t target_extruder;
   ;
 #endif
 
-#if HAS_CASE_LIGHT
-  bool case_light_on =
-    #if ENABLED(CASE_LIGHT_DEFAULT_ON)
-      true
-    #else
-      false
-    #endif
-  ;
-#endif
-
 #if ENABLED(DELTA)
 
   float delta[ABC],
@@ -720,7 +710,8 @@ static void report_current_position();
     SERIAL_ECHOPAIR(", ", z);
     SERIAL_CHAR(')');
 
-    suffix ? serialprintPGM(suffix) : SERIAL_EOL;
+    if (suffix) {serialprintPGM(suffix);}  //won't compile for Teensy with the previous construction
+    else SERIAL_EOL;
   }
 
   void print_xyz(const char* prefix, const char* suffix, const float xyz[]) {
@@ -1743,15 +1734,15 @@ static void clean_up_after_endstop_or_probe_move() {
 #if HAS_PROBING_PROCEDURE || HOTENDS > 1 || ENABLED(Z_PROBE_ALLEN_KEY) || ENABLED(Z_PROBE_SLED) || ENABLED(NOZZLE_CLEAN_FEATURE) || ENABLED(NOZZLE_PARK_FEATURE) || ENABLED(DELTA_AUTO_CALIBRATION)
 
   bool axis_unhomed_error(const bool x/*=true*/, const bool y/*=true*/, const bool z/*=true*/) {
-#if ENABLED(HOME_AFTER_DEACTIVATE)
-    const bool xx = x && !axis_known_position[X_AXIS],
-               yy = y && !axis_known_position[Y_AXIS],
-               zz = z && !axis_known_position[Z_AXIS];
-#else
-    const bool xx = x && !axis_homed[X_AXIS],
-               yy = y && !axis_homed[Y_AXIS],
-               zz = z && !axis_homed[Z_AXIS];
-#endif
+    #if ENABLED(HOME_AFTER_DEACTIVATE)
+      const bool xx = x && !axis_known_position[X_AXIS],
+                 yy = y && !axis_known_position[Y_AXIS],
+                 zz = z && !axis_known_position[Z_AXIS];
+    #else
+      const bool xx = x && !axis_homed[X_AXIS],
+                 yy = y && !axis_homed[Y_AXIS],
+                 zz = z && !axis_homed[Z_AXIS];
+    #endif
     if (xx || yy || zz) {
       SERIAL_ECHO_START;
       SERIAL_ECHOPGM(MSG_HOME " ");
@@ -2467,7 +2458,7 @@ static void clean_up_after_endstop_or_probe_move() {
     #endif
     for (uint8_t y = 0; y < sy; y++) {
       #ifdef SCAD_MESH_OUTPUT
-        SERIAL_PROTOCOLLNPGM(" [");           // open sub-array
+        SERIAL_PROTOCOLPGM(" [");           // open sub-array
       #else
         if (y < 10) SERIAL_PROTOCOLCHAR(' ');
         SERIAL_PROTOCOL((int)y);
@@ -2501,7 +2492,7 @@ static void clean_up_after_endstop_or_probe_move() {
       SERIAL_EOL;
     }
     #ifdef SCAD_MESH_OUTPUT
-      SERIAL_PROTOCOLPGM("\n];");                     // close 2D array
+      SERIAL_PROTOCOLPGM("];");                       // close 2D array
     #endif
     SERIAL_EOL;
   }
@@ -3798,6 +3789,8 @@ inline void gcode_G28(const bool always_home_all) {
     tool_change(old_tool_index, 0, true);
   #endif
 
+  lcd_refresh();
+
   report_current_position();
 
   #if ENABLED(DEBUG_LEVELING_FEATURE)
@@ -3839,7 +3832,7 @@ void home_all_axes() { gcode_G28(true); }
 
     #if MANUAL_PROBE_HEIGHT > 0
       feedrate_mm_s = homing_feedrate_mm_s[Z_AXIS];
-      current_position[Z_AXIS] = LOGICAL_Z_POSITION(Z_MIN_POS) + 0.2; // just slightly over the bed
+      current_position[Z_AXIS] = LOGICAL_Z_POSITION(Z_MIN_POS); // just slightly over the bed
       line_to_current_position();
     #endif
 
@@ -4132,8 +4125,14 @@ void home_all_axes() { gcode_G28(true); }
       #endif
     #endif
 
+    #if ENABLED(PROBE_MANUALLY)
+      const bool seenA = parser.seen('A'), seenQ = parser.seen('Q'), no_action = seenA || seenQ;
+    #endif
+
     #if ENABLED(DEBUG_LEVELING_FEATURE) && DISABLED(PROBE_MANUALLY)
       const bool faux = parser.seen('C') && parser.value_bool();
+    #elif ENABLED(PROBE_MANUALLY)
+      const bool faux = no_action;
     #else
       bool constexpr faux = false;
     #endif
@@ -4231,19 +4230,19 @@ void home_all_axes() { gcode_G28(true); }
             return;
           }
 
-          const float z = parser.seen('Z') && parser.has_value() ? parser.value_float() : 99999;
-          if (!WITHIN(z, -10, 10)) {
+          const float z = parser.seen('Z') && parser.has_value() ? parser.value_float() : NAN;
+          if (!isnan(z) || !WITHIN(z, -10, 10)) {
             SERIAL_ERROR_START;
             SERIAL_ERRORLNPGM("Bad Z value");
             return;
           }
 
-          const float x = parser.seen('X') && parser.has_value() ? parser.value_float() : 99999,
-                      y = parser.seen('Y') && parser.has_value() ? parser.value_float() : 99999;
+          const float x = parser.seen('X') && parser.has_value() ? parser.value_float() : NAN,
+                      y = parser.seen('Y') && parser.has_value() ? parser.value_float() : NAN;
           int8_t i = parser.seen('I') && parser.has_value() ? parser.value_byte() : -1,
                  j = parser.seen('J') && parser.has_value() ? parser.value_byte() : -1;
 
-          if (x < 99998 && y < 99998) {
+          if (!isnan(x) && !isnan(y)) {
             // Get nearest i / j from x / y
             i = (x - LOGICAL_X_POSITION(bilinear_start[X_AXIS]) + 0.5 * xGridSpacing) / xGridSpacing;
             j = (y - LOGICAL_Y_POSITION(bilinear_start[Y_AXIS]) + 0.5 * yGridSpacing) / yGridSpacing;
@@ -4279,7 +4278,11 @@ void home_all_axes() { gcode_G28(true); }
         return;
       }
 
-      dryrun = parser.seen('D') && parser.value_bool();
+      dryrun = (parser.seen('D') && parser.value_bool())
+        #if ENABLED(PROBE_MANUALLY)
+          || no_action
+        #endif
+      ;
 
       #if ENABLED(AUTO_BED_LEVELING_LINEAR)
 
@@ -4424,16 +4427,14 @@ void home_all_axes() { gcode_G28(true); }
 
     #if ENABLED(PROBE_MANUALLY)
 
-      const bool seenA = parser.seen('A'), seenQ = parser.seen('Q');
-
       // For manual probing, get the next index to probe now.
       // On the first probe this will be incremented to 0.
-      if (!seenA && !seenQ) {
+      if (!no_action) {
         ++abl_probe_index;
         g29_in_progress = true;
       }
 
-      // Abort current G29 procedure, go back to ABLStart
+      // Abort current G29 procedure, go back to idle state
       if (seenA && g29_in_progress) {
         SERIAL_PROTOCOLLNPGM("Manual G29 aborted");
         #if HAS_SOFTWARE_ENDSTOPS
@@ -4450,14 +4451,14 @@ void home_all_axes() { gcode_G28(true); }
       if (verbose_level || seenQ) {
         SERIAL_PROTOCOLPGM("Manual G29 ");
         if (g29_in_progress) {
-          SERIAL_PROTOCOLPAIR("point ", abl_probe_index + 1);
+          SERIAL_PROTOCOLPAIR("point ", min(abl_probe_index + 1, abl2));
           SERIAL_PROTOCOLLNPAIR(" of ", abl2);
         }
         else
           SERIAL_PROTOCOLLNPGM("idle");
       }
 
-      if (seenA || seenQ) return;
+      if (no_action) return;
 
       if (abl_probe_index == 0) {
         // For the initial G29 save software endstop state
@@ -4481,6 +4482,14 @@ void home_all_axes() { gcode_G28(true); }
         #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
           z_values[xCount][yCount] = measured_z + zoffset;
+
+          #if ENABLED(DEBUG_LEVELING_FEATURE)
+            if (DEBUGGING(LEVELING)) {
+              SERIAL_PROTOCOLPAIR("Save X", xCount);
+              SERIAL_PROTOCOLPAIR(" Y", yCount);
+              SERIAL_PROTOCOLLNPAIR(" Z", measured_z + zoffset);
+            }
+          #endif
 
         #elif ENABLED(AUTO_BED_LEVELING_3POINT)
 
@@ -5245,7 +5254,7 @@ void home_all_axes() { gcode_G28(true); }
 
           recalc_delta_settings(delta_radius, delta_diagonal_rod);
         }
-        else if(zero_std_dev >= test_precision) {   // step one back
+        else if (zero_std_dev >= test_precision) {   // step one back
           COPY(endstop_adj, e_old);
           delta_radius = dr_old;
           home_offset[Z_AXIS] = zh_old;
@@ -5922,7 +5931,8 @@ inline void gcode_M17() {
       idle();
       wait_for_heatup = false;
       HOTEND_LOOP() {
-        if (abs(thermalManager.degHotend(e) - thermalManager.degTargetHotend(e)) > 3) {
+        const int16_t target_temp = thermalManager.degTargetHotend(e);
+        if (target_temp && abs(thermalManager.degHotend(e) - target_temp) > 3) {
           wait_for_heatup = true;
           break;
         }
@@ -6002,7 +6012,7 @@ inline void gcode_M17() {
 
     #if IS_KINEMATIC
       // Move XYZ to starting position
-      planner.buffer_line_kinematic(lastpos, PAUSE_PARK_XY_FEEDRATE, active_extruder);
+      planner.buffer_line_kinematic(resume_position, PAUSE_PARK_XY_FEEDRATE, active_extruder);
     #else
       // Move XY to starting position, then Z
       destination[X_AXIS] = resume_position[X_AXIS];
@@ -7660,11 +7670,18 @@ inline void gcode_M115() {
       SERIAL_PROTOCOLLNPGM("Cap:SOFTWARE_POWER:0");
     #endif
 
-    // TOGGLE_LIGHTS (M355)
+    // CASE LIGHTS (M355)
     #if HAS_CASE_LIGHT
       SERIAL_PROTOCOLLNPGM("Cap:TOGGLE_LIGHTS:1");
+      bool USEABLE_HARDWARE_PWM(uint8_t pin);
+      if (USEABLE_HARDWARE_PWM(CASE_LIGHT_PIN)) {
+        SERIAL_PROTOCOLLNPGM("Cap:CASE_LIGHT_BRIGHTNESS:1");
+      }
+      else
+        SERIAL_PROTOCOLLNPGM("Cap:CASE_LIGHT_BRIGHTNESS:0");
     #else
       SERIAL_PROTOCOLLNPGM("Cap:TOGGLE_LIGHTS:0");
+      SERIAL_PROTOCOLLNPGM("Cap:CASE_LIGHT_BRIGHTNESS:0");
     #endif
 
     // EMERGENCY_PARSER (M108, M112, M410)
@@ -9454,30 +9471,54 @@ inline void gcode_M907() {
 #endif // HAS_MICROSTEPS
 
 #if HAS_CASE_LIGHT
-
-  uint8_t case_light_brightness = 255;
+  #ifndef INVERT_CASE_LIGHT
+    #define INVERT_CASE_LIGHT false
+  #endif
+  int case_light_brightness;  // LCD routine wants INT
+  bool case_light_on;
 
   void update_case_light() {
-    WRITE(CASE_LIGHT_PIN, case_light_on != INVERT_CASE_LIGHT ? HIGH : LOW);
-    analogWrite(CASE_LIGHT_PIN, case_light_on != INVERT_CASE_LIGHT ? case_light_brightness : 0);
+    pinMode(CASE_LIGHT_PIN, OUTPUT); // digitalWrite doesn't set the port mode
+    uint8_t case_light_bright = (uint8_t)case_light_brightness;
+    if (case_light_on) {
+      if (USEABLE_HARDWARE_PWM(CASE_LIGHT_PIN)) {
+        analogWrite(CASE_LIGHT_PIN, INVERT_CASE_LIGHT ? 255 - case_light_brightness : case_light_brightness );
+      }
+      else digitalWrite(CASE_LIGHT_PIN, INVERT_CASE_LIGHT ? LOW : HIGH );
+    }
+    else digitalWrite(CASE_LIGHT_PIN, INVERT_CASE_LIGHT ? HIGH : LOW);
   }
-
 #endif // HAS_CASE_LIGHT
 
 /**
- * M355: Turn case lights on/off and set brightness
+ * M355: Turn case light on/off and set brightness
  *
- *   S<bool>  Turn case light on or off
- *   P<byte>  Set case light brightness (PWM pin required)
+ *   P<byte>  Set case light brightness (PWM pin required - ignored otherwise)
+ *
+ *   S<bool>  Set case light on/off
+ *
+ *   When S turns on the light on a PWM pin then the current brightness level is used/restored
+ *
+ *   M355 P200 S0 turns off the light & sets the brightness level
+ *   M355 S1 turns on the light with a brightness of 200 (assuming a PWM pin)
  */
 inline void gcode_M355() {
   #if HAS_CASE_LIGHT
-    if (parser.seen('P')) case_light_brightness = parser.value_byte();
-    if (parser.seen('S')) case_light_on = parser.value_bool();
-    update_case_light();
+    uint8_t args = 0;
+    if (parser.seen('P')) ++args, case_light_brightness = parser.value_byte();
+    if (parser.seen('S')) ++args, case_light_on = parser.value_bool(); 
+    if (args) update_case_light();
+
+    // always report case light status
     SERIAL_ECHO_START;
-    SERIAL_ECHOPGM("Case lights ");
-    case_light_on ? SERIAL_ECHOLNPGM("on") : SERIAL_ECHOLNPGM("off");
+    if (!case_light_on) {
+      SERIAL_ECHOLN("Case light: off");
+    }
+    else {
+      if (!USEABLE_HARDWARE_PWM(CASE_LIGHT_PIN)) SERIAL_ECHOLN("Case light: on");
+      else SERIAL_ECHOLNPAIR("Case light: ", case_light_brightness);
+    }
+
   #else
     SERIAL_ERROR_START;
     SERIAL_ERRORLNPGM(MSG_ERR_M355_NONE);
@@ -10692,7 +10733,7 @@ void process_next_command() {
 
       #endif // HAS_MICROSTEPS
 
-      case 355: // M355 Turn case lights on/off
+      case 355: // M355 set case light brightness
         gcode_M355();
         break;
 
@@ -12441,6 +12482,8 @@ void setup() {
   #endif
 
   #if HAS_CASE_LIGHT
+    case_light_on = CASE_LIGHT_DEFAULT_ON;
+    case_light_brightness = CASE_LIGHT_DEFAULT_BRIGHTNESS;
     update_case_light();
   #endif
 
