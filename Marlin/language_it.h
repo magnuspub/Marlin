@@ -120,7 +120,7 @@
 #define MSG_UBL_FILLIN_MESH                 _UxGT("Riempimento Mesh")
 #define MSG_UBL_INVALIDATE_ALL              _UxGT("Invalida Tutto")
 #define MSG_UBL_INVALIDATE_CLOSEST          _UxGT("Invalida Punto Vicino")
-#define MSG_UBL_FINE_TUNE_ALL               _UxGT("Ritocca All")
+#define MSG_UBL_FINE_TUNE_ALL               _UxGT("Ritocca Tutto")
 #define MSG_UBL_FINE_TUNE_CLOSEST           _UxGT("Ritocca Punto Vicino")
 #define MSG_UBL_STORAGE_MESH_MENU           _UxGT("Mesh Salvate")
 #define MSG_UBL_STORAGE_SLOT                _UxGT("Slot di memoria")
@@ -149,7 +149,7 @@
 #if ENABLED(DOGLCD)
   #define MSG_FAN_SPEED                     _UxGT("Velocità ventola")
 #else
-  #define MSG_FAN_SPEED                     _UxGT("Velocita ventola")
+  #define MSG_FAN_SPEED                     _UxGT("Vel. ventola")
 #endif
 #define MSG_FLOW                            _UxGT("Flusso")
 #define MSG_CONTROL                         _UxGT("Controllo")
@@ -197,7 +197,7 @@
 #define MSG_LOAD_EEPROM                     _UxGT("Carica da memoria")
 #define MSG_RESTORE_FAILSAFE                _UxGT("Ripristina imp.")
 #define MSG_REFRESH                         _UxGT("Aggiorna")
-#define MSG_WATCH                           _UxGT("Guarda")
+#define MSG_WATCH                           _UxGT("Visualizza")
 #define MSG_PREPARE                         _UxGT("Prepara")
 #define MSG_TUNE                            _UxGT("Regola")
 #define MSG_PAUSE_PRINT                     _UxGT("Pausa")
