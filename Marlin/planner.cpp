@@ -470,14 +470,9 @@ void Planner::check_axes_activity() {
           if (fan_kick_end[f] == 0) { \
             fan_kick_end[f] = ms + FAN_KICKSTART_TIME; \
             tail_fan_speed[f] = 255; \
-          } else { \
-            if (PENDING(ms, fan_kick_end[f])) { \
-              tail_fan_speed[f] = 255; \
-            } \
-          } \
-        } else { \
-          fan_kick_end[f] = 0; \
-        }
+          } else if (PENDING(ms, fan_kick_end[f])) \
+            tail_fan_speed[f] = 255; \
+        } else fan_kick_end[f] = 0
 
       #if HAS_FAN0
         KICKSTART_FAN(0);
@@ -740,7 +735,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
   #endif
   SERIAL_ECHOPAIR(" (", dc);
   SERIAL_CHAR(')');
-  SERIAL_EOL;
+  SERIAL_EOL();
   //*/
 
   // DRYRUN ignores all temperature constraints and assures that the extruder is instantly satisfied
@@ -766,7 +761,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
           position_float[E_AXIS] = e;
           de_float = 0;
         #endif
-        SERIAL_ECHO_START;
+        SERIAL_ECHO_START();
         SERIAL_ECHOLNPGM(MSG_ERR_COLD_EXTRUDE_STOP);
       }
       #if ENABLED(PREVENT_LENGTHY_EXTRUDE)
@@ -777,7 +772,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
             position_float[E_AXIS] = e;
             de_float = 0;
           #endif
-          SERIAL_ECHO_START;
+          SERIAL_ECHO_START();
           SERIAL_ECHOLNPGM(MSG_ERR_LONG_EXTRUDE_STOP);
         }
       #endif
@@ -1420,7 +1415,7 @@ void Planner::_buffer_line(const float &a, const float &b, const float &c, const
       block->advance_rate = block->advance = 0;
 
     /**
-     SERIAL_ECHO_START;
+     SERIAL_ECHO_START();
      SERIAL_ECHOPGM("advance :");
      SERIAL_ECHO(block->advance/256.0);
      SERIAL_ECHOPGM("advance rate :");

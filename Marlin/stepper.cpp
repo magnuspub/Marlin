@@ -370,7 +370,7 @@ void Stepper::isr() {
         ocr_val = (remainder < OCR_VAL_TOLERANCE) ? ENDSTOP_NOMINAL_OCR_VAL + remainder : ENDSTOP_NOMINAL_OCR_VAL; \
         step_remaining = (uint16_t)L - ocr_val; \
       } \
-    } while(0)
+    }while(0)
 
     if (step_remaining && ENDSTOPS_ENABLED) {   // Just check endstops - not yet time for a step
       endstops.update();
@@ -586,7 +586,7 @@ void Stepper::isr() {
     /**
      * If a minimum pulse time was specified get the timer 0 value.
      *
-     * TCNT0 has an 8x prescaler, so it increments every 8 cycles. 
+     * TCNT0 has an 8x prescaler, so it increments every 8 cycles.
      * That's every 0.5µs on 16MHz and every 0.4µs on 20MHz.
      * 20 counts of TCNT0 -by itself- is a good pulse delay.
      * 10µs = 160 or 200 cycles.
@@ -862,6 +862,9 @@ void Stepper::isr() {
         SET_E_STEP_DIR(2);
         #if E_STEPPERS > 3
           SET_E_STEP_DIR(3);
+          #if E_STEPPERS > 4
+            SET_E_STEP_DIR(4);
+          #endif
         #endif
       #endif
     #endif
@@ -880,6 +883,9 @@ void Stepper::isr() {
           START_E_PULSE(2);
           #if E_STEPPERS > 3
             START_E_PULSE(3);
+            #if E_STEPPERS > 4
+              START_E_PULSE(4);
+            #endif
           #endif
         #endif
       #endif
@@ -899,6 +905,9 @@ void Stepper::isr() {
           STOP_E_PULSE(2);
           #if E_STEPPERS > 3
             STOP_E_PULSE(3);
+            #if E_STEPPERS > 4
+              STOP_E_PULSE(4);
+            #endif
           #endif
         #endif
       #endif
@@ -1305,7 +1314,7 @@ void Stepper::report_positions() {
   #endif
   SERIAL_PROTOCOL(zpos);
 
-  SERIAL_EOL;
+  SERIAL_EOL();
 }
 
 #if ENABLED(BABYSTEPPING)
@@ -1353,7 +1362,6 @@ void Stepper::report_positions() {
   // No other ISR should ever interrupt this!
   void Stepper::babystep(const AxisEnum axis, const bool direction) {
     cli();
-    uint8_t old_dir;
 
     switch (axis) {
 

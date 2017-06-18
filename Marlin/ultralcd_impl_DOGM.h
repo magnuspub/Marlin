@@ -50,6 +50,10 @@
 
 #include <U8glib.h>
 
+#if ENABLED(AUTO_BED_LEVELING_UBL)
+  #include "ubl.h"
+#endif
+
 #if ENABLED(SHOW_BOOTSCREEN) && ENABLED(SHOW_CUSTOM_BOOTSCREEN)
   #include "_Bootscreen.h"
 #endif
@@ -357,7 +361,7 @@ FORCE_INLINE void _draw_heater_status(const uint8_t x, const int8_t heater, cons
   #endif
 
   if (PAGE_UNDER(7)) {
-    #if ENABLED(ADVANCED_PAUSE_FEATURE)
+    #if HEATER_IDLE_HANDLER
       const bool is_idle = (!isBed ? thermalManager.is_heater_idle(heater) :
       #if HAS_TEMP_BED
         thermalManager.is_bed_idle()
@@ -404,14 +408,35 @@ FORCE_INLINE void _draw_axis_label(const AxisEnum axis, const char* const pstr, 
   }
 }
 
-inline void lcd_implementation_status_message() {
+inline void lcd_implementation_status_message(const bool blink) {
   #if ENABLED(STATUS_MESSAGE_SCROLLING)
-    lcd_print_utf(lcd_status_message + status_scroll_pos);
+    static bool last_blink = false;
     const uint8_t slen = lcd_strlen(lcd_status_message);
-    if (slen > LCD_WIDTH) {
-      // Skip any non-printing bytes
-      while (!PRINTABLE(lcd_status_message[status_scroll_pos++])) { /* nada */ }
-      if (status_scroll_pos > slen - LCD_WIDTH) status_scroll_pos = 0;
+    const char *stat = lcd_status_message + status_scroll_pos;
+    if (slen <= LCD_WIDTH)
+      lcd_print_utf(stat);                                      // The string isn't scrolling
+    else {
+      if (status_scroll_pos <= slen - LCD_WIDTH)
+        lcd_print_utf(stat);                                    // The string fills the screen
+      else {
+        uint8_t chars = LCD_WIDTH;
+        if (status_scroll_pos < slen) {                         // First string still visible
+          lcd_print_utf(stat);                                  // The string leaves space
+          chars -= slen - status_scroll_pos;                    // Amount of space left
+        }
+        u8g.print('.');                                         // Always at 1+ spaces left, draw a dot
+        if (--chars) {
+          if (status_scroll_pos < slen + 1)                     // Draw a second dot if there's space
+            --chars, u8g.print('.');
+          if (chars) lcd_print_utf(lcd_status_message, chars);  // Print a second copy of the message
+        }
+      }
+      if (last_blink != blink) {
+        last_blink = blink;
+        // Skip any non-printing bytes
+        if (status_scroll_pos < slen) while (!PRINTABLE(lcd_status_message[status_scroll_pos])) status_scroll_pos++;
+        if (++status_scroll_pos >= slen + 2) status_scroll_pos = 0;
+      }
     }
   #else
     lcd_print_utf(lcd_status_message);
@@ -422,7 +447,7 @@ inline void lcd_implementation_status_message() {
 
 static void lcd_implementation_status_screen() {
 
-  bool blink = lcd_blink();
+  const bool blink = lcd_blink();
 
   // Status Menu Font
   lcd_setFont(FONT_STATUSMENU);
@@ -668,7 +693,7 @@ static void lcd_implementation_status_screen() {
 
     #if ENABLED(FILAMENT_LCD_DISPLAY) && ENABLED(SDSUPPORT)
       if (PENDING(millis(), previous_lcd_status_ms + 5000UL)) {  //Display both Status message line and Filament display on the last line
-        lcd_implementation_status_message();
+        lcd_implementation_status_message(blink);
       }
       else {
         lcd_printPGM(PSTR(LCD_STR_FILAM_DIA));
@@ -680,7 +705,7 @@ static void lcd_implementation_status_screen() {
         u8g.print('%');
       }
     #else
-      lcd_implementation_status_message();
+      lcd_implementation_status_message(blink);
     #endif
   }
 }
