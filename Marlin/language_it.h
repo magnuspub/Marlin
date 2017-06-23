@@ -33,7 +33,7 @@
 #define MAPPER_C2C3
 #define DISPLAY_CHARSET_ISO10646_1
 
-#define WELCOME_MSG                         MACHINE_NAME _UxGT(" pronto.")
+#define WELCOME_MSG                         MACHINE_NAME _UxGT(" pronta.")
 #define MSG_BACK                            _UxGT("Indietro")
 #define MSG_SD_INSERTED                     _UxGT("SD Card inserita")
 #define MSG_SD_REMOVED                      _UxGT("SD Card rimossa")
