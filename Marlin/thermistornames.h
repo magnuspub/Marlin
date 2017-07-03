@@ -93,5 +93,7 @@
   #define THERMISTOR_NAME "Dummy 1"
 #elif THERMISTOR_ID == 999
   #define THERMISTOR_NAME "Dummy 2"
-
+#elif THERMISTOR_ID == 201
+  #define THERMISTOR_NAME "PT100 E3D Amp"
+  
 #endif // THERMISTOR_ID

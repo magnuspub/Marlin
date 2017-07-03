@@ -124,6 +124,9 @@
 #if ANY_THERMISTOR_IS(999) // User-defined table 2
   #include "thermistortable_999.h"
 #endif
+#if ANY_THERMISTOR_IS(201) // pt100 from prusa
+  #include "thermistortable_201.h"
+#endif
 
 #define _TT_NAME(_N) temptable_ ## _N
 #define TT_NAME(_N) _TT_NAME(_N)
